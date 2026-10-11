@@ -11,15 +11,18 @@ service.
 
 UI is fully English. Tabs: **Pixel Paint · Upload Image · Stable Diffusion**.
 
-## Highlights
+---
 
-- **Single model** — SDXL-Turbo 1.0
-  (`--xl --turbo --ram`); 4 steps by default.
-- **Any aspect ratio** — square, 4:3, 16:9, 3:2, 21:9 (`--res WxH`,
-  multiples of 8).
-- **One-file UI** — the entire web front end is a single `index.html`.
-- **Idempotent installer** — re-runnable; completed parts are skipped.
-- **No vendor lock-in** — plain Flask + luma.oled, MIT-licensed code.
+## What the app does
+
+- **Pixel Paint** — a 128×64 pixel canvas you draw on; push to the OLED with
+  *Send to Display*.
+- **Upload Image** — upload an image, set a brightness threshold, send it to
+  the OLED.
+- **Stable Diffusion** — text-to-image via OnnxStream (`sd`). 
+  Generated images appear in the in-page gallery.
+
+---
 
 ## Built on / model weights
 
@@ -45,7 +48,7 @@ repo at install time; this repository does not redistribute them.
 | Step | Action |
 |------|--------|
 | 1 | Installs OS packages: `i2c-tools`, `python3-smbus`, `python3-pil`, `python3-pip`, `lightdm`, `labwc`, `pcmanfm-pi` |
-| 2 | Enables the firmware I2C mux in `config.txt` (correct dtparam for Pi 4 vs Pi 5), adds the app user to the `i2c` group, ensures `i2c_dev` kernel module loads at boot |
+| 2 | Enables the firmware I2C mux in `config.txt` (correct dtparam Pi 5), adds the app user to the `i2c` group, ensures `i2c_dev` kernel module loads at boot |
 | 3 | Installs pinned Python deps into the target user's site: `luma.oled==3.15.0`, `luma.core==2.5.3`, `Flask==3.1.3`, `Pillow==10.4.0` |
 | 4 | Writes the app to `<home>/oled-web/` (`app.py` + `templates/index.html`) |
 | 5 | Compiles **OnnxStream** and downloads the **SDXL-Turbo** models (~9.3 GB) in parallel, with a **live download progress bar** |
@@ -61,7 +64,7 @@ repo at install time; this repository does not redistribute them.
 
 ## Requirements
 
-- **Raspberry Pi OS** (Bookworm or Trixie), any Pi with I2C (Pi 4 or Pi 5)
+- **Raspberry Pi OS** (Bookworm or Trixie), any Pi with I2C (Pi 5)
 - **A target user account that already exists** (default: `sysadmin`) — see below
 - **SSD1306 128×64 I2C OLED** wired to the Pi's I2C header:
   - SDA → pin 3, SCL → pin 5, VCC → pin 1 (3.3 V), GND → pin 6
@@ -122,7 +125,7 @@ I2C config change takes effect at the first boot.
 | `--user <name>` | `sysadmin` | Target user (must already exist) |
 | `--bus <n>` | `1` | I2C bus number |
 | `--reboot` | off | Force a reboot at the end even if config did not change |
-| `--skip-sd` | off | Skip the whole Stable Diffusion build + download |
+| `--skip-sd` | off | Skip the whole Stable Diffusion build + model download |
 | `--skip-sdxl` | off | Skip just the SDXL-Turbo model download |
 
 ### After install
@@ -130,19 +133,6 @@ I2C config change takes effect at the first boot.
 1. If the script reboots, wait for the Pi to come back (~30 s).
 2. Open the web UI: **`http://<pi-ip>:5000`**
 3. The OLED should display the startup (blank) frame.
-
----
-
-## What the app does
-
-- **Pixel Paint** — a 128×64 pixel canvas you draw on; push to the OLED with
-  *Send to Display*.
-- **Upload Image** — upload an image, set a brightness threshold, send it to
-  the OLED.
-- **Stable Diffusion** — text-to-image via OnnxStream (`sd`). Single live
-  model, **SDXL-Turbo 1.0** in Fast mode (`--xl --turbo --ram`). Non-square
-  resolutions work (`--res WxH`, multiples of 8); default **896×512**, 4 steps.
-  Generated images appear in the in-page gallery.
 
 ---
 
