@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">  <meta http-equiv="Pragma" content="no-cache">  <meta http-equiv="Expires" content="0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OLED Controller</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --primary: #0f3460;
+      --accent: #e94560;
+      --text: #eee;
+      --dim: #888;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background: var(--surface);
+      padding: 1.2rem 2rem;
+      text-align: center;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+    }
+
+    header p {
+      color: var(--dim);
+      font-size: 0.85rem;
+      margin-top: .3rem;
+    }
+
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 900px;
+      padding: 2rem 1rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: .85rem;
+      border: none;
+      background: var(--surface);
+      color: var(--dim);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: .2s;
+      border-bottom: 3px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: var(--primary);
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .panel {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    /* ── Upload ── */
+    .drop-zone {
+      border: 2px dashed var(--dim);
+      border-radius: 8px;
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: .2s;
+      margin-bottom: 1rem;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(233, 69, 96, .05);
+    }
+
+    .drop-zone p {
+      color: var(--dim);
+      margin-top: .5rem;
+    }
+
+    .drop-zone .icon {
+      font-size: 2.5rem;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .status-bar {
+      margin-top: 1rem;
+      padding: .6rem 1rem;
+      border-radius: 6px;
+      font-size: .9rem;
+      display: none;
+    }
+
+    .status-bar.ok {
+      display: block;
+      background: #1b5e20;
+      color: #a5d6a7;
+    }
+
+    .status-bar.err {
+      display: block;
+      background: #b71c1c;
+      color: #ef9a9a;
+    }
+
+    .threshold-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .threshold-row label {
+      color: var(--dim);
+      font-size: .9rem;
+      min-width: 80px;
+    }
+
+    .threshold-row input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+
+    /* ── Canvas (Pixel Editor) ── */
+    .canvas-area {
+      display: flex;
+      gap: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .canvas-wrap {
+      position: relative;
+    }
+
+    #pixel-canvas {
+      background: #000;
+      image-rendering: pixelated;
+      width: 256px;
+      height: 128px;
+      border-radius: 6px;
+      cursor: crosshair;
+      border: 2px solid var(--primary);
+    }
+
+    .tools {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .tools h3 {
+      margin-bottom: .8rem;
+      font-size: 1rem;
+    }
+
+    .tools button {
+      display: block;
+      width: 100%;
+      padding: .7rem 1rem;
+      margin-bottom: .5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: .9rem;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-accent:hover {
+      background: #d63851;
+    }
+
+    .btn-secondary {
+      background: var(--primary);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: #1a4a7a;
+    }
+
+    .color-toggle {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+
+    .color-toggle button {
+      flex: 1;
+      padding: .5rem;
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .85rem;
+      transition: .2s;
+    }
+
+    .color-toggle button.active-white {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .color-toggle button.active-black {
+      background: #000;
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .hint {
+      color: var(--dim);
+      font-size: .8rem;
+      margin-top: .8rem;
+      line-height: 1.4;
+    }
+
+    .live-preview {
+      margin-top: 1rem;
+      text-align: center;
+    }
+
+    .live-preview img {
+      border-radius: 6px;
+      border: 2px solid var(--primary);
+      image-rendering: pixelated;
+    }
+
+    /* ── Stable Diffusion ── */
+    .sd-form label {
+      display: block;
+      color: var(--dim);
+      font-size: .85rem;
+      margin: .8rem 0 .3rem;
+    }
+
+    .sd-form textarea {
+      width: 100%;
+      min-height: 70px;
+      background: var(--bg);
+      color: var(--text);
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      padding: .7rem;
+      font-size: .95rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .sd-form textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .sd-options {
+      display: flex;
+      gap: 1.2rem;
+      flex-wrap: wrap;
+      margin-top: .3rem;
+    }
+
+    .sd-options label {
+      margin-top: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .sd-options input {
+      width: 80px;
+      background: var(--bg);
+      color: var(--text);
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      font-size: .9rem;
+    }
+
+    .sd-options input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    #sd-generate {
+      margin-top: 1rem;
+      width: 100%;
+      padding: .85rem;
+      font-size: 1rem;
+    }
+
+    #sd-generate:disabled {
+      background: var(--primary);
+      color: var(--dim);
+      cursor: wait;
+    }
+
+    .sd-progress {
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .sd-progress.visible {
+      display: block;
+    }
+
+    .progress-track {
+      height: 14px;
+      background: var(--bg);
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid var(--primary);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width .4s;
+    }
+
+    .sd-progress-text {
+      margin-top: .4rem;
+      color: var(--dim);
+      font-size: .85rem;
+    }
+
+    .sd-result {
+      margin-top: 1.2rem;
+      text-align: center;
+      display: none;
+    }
+
+    .sd-result.visible {
+      display: block;
+    }
+
+    .sd-result img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 2px solid var(--primary);
+    }
+
+    .sd-result a {
+      display: inline-block;
+      margin-top: .6rem;
+      color: var(--accent);
+      font-size: .9rem;
+    }
+
+    /* ── Upload gallery ── */
+    .upload-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .8rem;
+      margin-top: .8rem;
+    }
+
+    .upload-card {
+      background: var(--bg);
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .upload-card img {
+      width: 100%;
+      display: block;
+    }
+
+    .upload-card .card-body {
+      padding: .5rem;
+    }
+
+    .upload-card .card-name {
+      font-size: .72rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .upload-card .card-date {
+      font-size: .68rem;
+      color: var(--dim);
+      margin-top: .15rem;
+    }
+
+    .upload-card button {
+      margin-top: .4rem;
+      padding: .3rem .7rem;
+      border: none;
+      border-radius: 5px;
+      background: var(--primary);
+      color: var(--text);
+      font-size: .75rem;
+      cursor: pointer;
+    }
+
+    .upload-card button:hover {
+      background: var(--accent);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: .4rem;
+      justify-content: center;
+    }
+
+    .card-actions button {
+      margin-top: .4rem;
+      flex: 1;
+    }
+
+    .card-actions .del-btn {
+      background: transparent;
+      border: 1px solid var(--dim);
+      color: var(--dim);
+    }
+
+    .card-actions .del-btn:hover {
+      border-color: #e05555;
+      color: #e05555;
+      background: rgba(224, 85, 85, .12);
+    }
+
+    .upload-gallery-empty {
+      color: var(--dim);
+      font-size: .85rem;
+      margin-top: .5rem;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>OLED Controller — SSD1306</h1>
+    <p>Pixel Paint · Upload Image · Stable Diffusion on ARM</p>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('draw', this)">🎨 Pixel Paint</button>
+      <button class="tab-btn" onclick="showTab('upload', this)">📤 Upload Image</button>
+      <button class="tab-btn" onclick="showTab('sd', this)">✨ Stable Diffusion</button>
+    </div>
+
+    <!-- Upload tab -->
+    <div id="tab-upload" class="tab-content">
+      <div class="panel">
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="icon">🖼️</div>
+          <p>Drag & Drop or <strong>click to select</strong></p>
+          <p style="font-size:.8rem;color:#666">JPEG, PNG, GIF — automatically scaled to 128×64</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*">
+
+        <div class="threshold-row">
+          <label>Threshold:</label>
+          <input type="range" id="threshold" min="0" max="255" value="128">
+          <span id="threshold-val" style="min-width:40px;text-align:right;color:var(--dim)">128</span>
+        </div>
+
+        <div id="upload-status" class="status-bar"></div>
+
+        <h3 style="margin-top:1.4rem;font-size:1rem;color:var(--dim)">Recently uploaded</h3>
+        <p class="hint" style="margin-top:.2rem">All uploaded images appear here. "On OLED" re-displays the image on the screen.</p>
+        <div id="upload-gallery" class="upload-gallery"></div>
+      </div>
+    </div>
+
+    <!-- Draw tab -->
+    <div id="tab-draw" class="tab-content active">
+      <div class="panel">
+        <div class="canvas-area">
+          <div class="canvas-wrap">
+            <canvas id="pixel-canvas" width="128" height="64"></canvas>
+            <div class="live-preview">
+              <p style="color:var(--dim);font-size:.8rem;margin-top:.5rem">
+                Live Preview (1:1 scale)
+              </p>
+            </div>
+          </div>
+          <div class="tools">
+            <h3>Tools</h3>
+            <div class="color-toggle">
+              <button id="pen-white" class="active-white" onclick="setPen(true)">⬜ White</button>
+              <button id="pen-black" onclick="setPen(false)">⬛ Black</button>
+            </div>
+            <button class="btn-accent" onclick="sendToOLED()">Send to Display</button>
+            <button class="btn-secondary" onclick="clearCanvas()">🗑️ Clear</button>
+            <button class="btn-secondary" onclick="exportCanvas()">💾 Save as PNG</button>
+            <p class="hint">
+              Click or drag the mouse on the canvas to draw.
+              "Send to Display" sends the image to the OLED.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stable Diffusion tab -->
+    <div id="tab-sd" class="tab-content">
+      <div class="panel sd-form">
+        <div style="font-size:1rem;margin-bottom:.3rem">✨ Stable Diffusion <span style="color:var(--dim);font-size:.8rem">(OnnxStream, CPU)</span></div>
+        <p class="hint" style="margin:0 0 .8rem">Generation runs directly on the Raspberry Pi (CPU, ~1 minute/step, depending on resolution). Progress is shown on the OLED display.</p>
+
+        <label for="sd-prompt">Prompt</label>
+        <textarea id="sd-prompt" placeholder="e.g. a cozy cabin in the mountains at sunset, photorealistic, soft light"></textarea>
+
+        <div class="sd-options" id="sd-row">
+          <label>Format:
+            <select id="sd-res">
+              <option value="512x512">Square (512×512)</option>
+              <option value="768x576">4:3 — 768×576</option>
+              <option value="896x512" selected>16:9 — 896×512</option>
+              <option value="768x512">3:2 — 768×512</option>
+              <option value="custom">…custom</option>
+            </select>
+          </label>
+          <label id="sd-res-custom" style="display:none">Custom (W×H):
+            <input type="text" id="sd-res-custom-val" placeholder="z. B. 1024x768" size="14">
+          </label>
+          <label>Steps: <input type="number" id="sd-steps" value="4" min="1" max="8"></label>
+          <label>Seed (empty = random): <input type="text" id="sd-seed" placeholder="random"></label>
+        </div>
+
+        <p class="hint" id="sd-steps-hint" style="margin-top:.4rem"></p>
+
+        <button id="sd-generate" class="btn-accent" onclick="sdStart()">Generate</button>
+
+        <div id="sd-status" class="status-bar"></div>
+
+        <div id="sd-progress" class="sd-progress">
+          <div class="progress-track"><div id="sd-progress-fill" class="progress-fill"></div></div>
+          <div id="sd-progress-text" class="sd-progress-text">Preparing…</div>
+        </div>
+
+        <div id="sd-result" class="sd-result">
+          <img id="sd-result-img" src="" alt="Result">
+          <br>
+          <a id="sd-result-link" href="#" target="_blank">📥 Download PNG</a>
+        </div>
+
+        <div class="threshold-row">
+          <label>Threshold:</label>
+          <input type="range" id="sd-threshold" min="0" max="255" value="128">
+          <span id="sd-threshold-val" style="min-width:40px; text-align:right; color:var(--dim)">128</span>
+        </div>
+        <p class="hint" style="margin-top:.4rem">Adjusts the Stable Diffusion image currently shown on the OLED without regenerating.</p>
+
+        <h3 style="margin-top:1.4rem;font-size:1rem;color:var(--dim)">Recent Images</h3>
+        <p class="hint" style="margin-top:.2rem">The last 8 generated images. The "On OLED" button loads an image onto the OLED.</p>
+        <div class="upload-gallery" id="sd-gallery"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // ── Tab switching ──
+    function showTab(name, btn) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      (btn || event.target).classList.add('active');
+      if (name === 'sd') sdPoll(true);
+      if (name === 'upload') loadUploadGallery(false);
+      if (name === 'sd') loadSdGallery();
+    }
+
+    // ── Upload ──
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const thresholdSlider = document.getElementById('threshold');
+    const thresholdVal = document.getElementById('threshold-val');
+    const uploadStatus = document.getElementById('upload-status');
+
+    thresholdSlider.addEventListener('input', () => {
+      thresholdVal.textContent = thresholdSlider.value;
+      // Live-adjust the currently displayed image on the OLED (server-side, debounced)
+      clearTimeout(thresholdTimer);
+      thresholdTimer = setTimeout(sendThreshold, 120);
+    });
+
+    let thresholdTimer = null;
+    function sendThreshold() {
+      fetch('/upload/threshold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold: parseInt(thresholdSlider.value, 10) })
+      }).then(r => r.json()).then(d => {
+        if (!d.ok && d.error === 'no active image') {
+          // nothing uploaded in this session — harmless, keep the value
+        }
+      }).catch(() => {});
+    }
+
+    ['dragover', 'dragenter'].forEach(e => {
+      dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); });
+    });
+    ['dragleave', 'drop'].forEach(e => {
+      dropZone.addEventListener(e, () => dropZone.classList.remove('drag-over'));
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) uploadFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+    });
+
+    function uploadFile(file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('threshold', thresholdSlider.value);
+
+      uploadStatus.className = 'status-bar';
+      uploadStatus.textContent = 'Uploading...';
+
+      fetch('/upload', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            uploadStatus.className = 'status-bar ok';
+            uploadStatus.textContent = '✅ Image is shown on the OLED!';
+            loadUploadGallery(true, data.url);
+          } else {
+            uploadStatus.className = 'status-bar err';
+            uploadStatus.textContent = '❌ ' + (data.error || 'Error');
+          }
+        })
+        .catch(err => {
+          uploadStatus.className = 'status-bar err';
+          uploadStatus.textContent = '❌ ' + err;
+        });
+    }
+
+    // ── Upload gallery ──
+    function uploadDate(ts) {
+      const d = new Date(ts * 1000);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })
+        + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function loadUploadGallery(highlightNew, newUrl) {
+      fetch('/uploads/list?t=' + Date.now())
+        .then(r => r.json())
+        .then(items => {
+          const gallery = document.getElementById('upload-gallery');
+          if (!items.length) {
+            gallery.innerHTML = '<div class="upload-gallery-empty">No images uploaded yet.</div>';
+            return;
+          }
+          gallery.innerHTML = '';
+          items.forEach(it => {
+            const card = document.createElement('div');
+            card.className = 'upload-card';
+            const img = document.createElement('img');
+            img.src = it.url + '?t=' + it.ts;
+            img.alt = it.name;
+            img.loading = 'lazy';
+            const body = document.createElement('div');
+            body.className = 'card-body';
+            const name = document.createElement('div');
+            name.className = 'card-name';
+            name.textContent = it.name;
+            name.title = it.name;
+            const date = document.createElement('div');
+            date.className = 'card-date';
+            date.textContent = uploadDate(it.ts);
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+            const btn = document.createElement('button');
+            btn.textContent = 'On OLED';
+            btn.onclick = () => redisplayUpload(it.url.replace(/t=\d+$/, ''), btn);
+            const del = document.createElement('button');
+            del.className = 'del-btn';
+            del.textContent = '🗑';
+            del.title = 'Delete';
+            del.onclick = () => deleteUpload(it, card, del);
+            actions.append(btn, del);
+            body.append(name, date, actions);
+            card.append(img, body);
+            if (highlightNew && it.url === newUrl) {
+              card.style.border = '2px solid var(--accent)';
+              card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            gallery.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    }
+
+    function redisplayUpload(url, btn) {
+      const name = url.split('/').pop().split('?')[0];
+      btn.textContent = '…';
+      fetch('/upload/redisplay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+        .then(r => r.json())
+        .then(d => {
+          btn.textContent = d.ok ? '✅ On OLED' : '❌ Error';
+          if (d.ok) uploadStatus.className = 'status-bar ok',
+            uploadStatus.textContent = '✅ Image is shown on the OLED!';
+        })
+        .catch(() => { btn.textContent = 'On OLED'; });
+      setTimeout(() => { if (btn.textContent.startsWith('✅')) btn.textContent = 'On OLED'; }, 1500);
+    }
+
+    function deleteUpload(it, card, del) {
+      if (!confirm('Really delete "' + it.name + '"?')) return;
+      const name = it.url.split('/').pop().split('?')[0];
+      del.textContent = '…';
+      fetch('/upload/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            card.remove();
+            const g = document.getElementById('upload-gallery');
+            if (!g.querySelector('.upload-card'))
+              g.innerHTML = '<div class="upload-gallery-empty">No images uploaded yet.</div>';
+          } else { del.textContent = '🗑'; }
+        })
+        .catch(() => { del.textContent = '🗑'; });
+    }
+
+    // ── SD gallery (recent images) + threshold slider ──
+    const sdThresholdSlider = document.getElementById('sd-threshold');
+    const sdThresholdVal = document.getElementById('sd-threshold-val');
+    let sdThresholdTimer = null;
+
+    sdThresholdSlider.addEventListener('input', () => {
+      sdThresholdVal.textContent = sdThresholdSlider.value;
+      // Live-adjust the currently shown SD image (debounced, server-side)
+      clearTimeout(sdThresholdTimer);
+      sdThresholdTimer = setTimeout(() => {
+        fetch('/sd/threshold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threshold: parseInt(sdThresholdSlider.value, 10) })
+        }).then(r => r.json()).catch(() => {});
+      }, 120);
+    });
+
+    function loadSdGallery() {
+      fetch('/sd/list?t=' + Date.now())
+        .then(r => r.json())
+        .then(items => {
+          const gallery = document.getElementById('sd-gallery');
+          if (!items.length) {
+            gallery.innerHTML = '<div class="upload-gallery-empty">No images generated yet.</div>';
+            return;
+          }
+          gallery.innerHTML = '';
+          items.forEach(it => {
+            const card = document.createElement('div');
+            card.className = 'upload-card';
+            const img = document.createElement('img');
+            img.src = it.url + '?t=' + it.ts;
+            img.alt = it.name;
+            img.loading = 'lazy';
+            const body = document.createElement('div');
+            body.className = 'card-body';
+            const name = document.createElement('div');
+            name.className = 'card-name';
+            name.textContent = it.name;
+            name.title = it.name;
+            const date = document.createElement('div');
+            date.className = 'card-date';
+            date.textContent = uploadDate(it.ts);
+            const actions = document.createElement('div');
+            actions.className = 'card-actions';
+            const btn = document.createElement('button');
+            btn.textContent = 'On OLED';
+            btn.onclick = () => sdSelectImage(it.name, btn);
+            const del = document.createElement('button');
+            del.className = 'del-btn';
+            del.textContent = '🗑';
+            del.title = 'Delete';
+            del.onclick = () => sdDeleteImage(it, card, del);
+            actions.append(btn, del);
+            body.append(name, date, actions);
+            card.append(img, body);
+            gallery.appendChild(card);
+          });
+        })
+        .catch(() => {});
+    }
+
+    function sdSelectImage(name, btn) {
+      btn.textContent = '…';
+      fetch('/sd/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      })
+        .then(r => r.json())
+        .then(d => {
+          btn.textContent = d.ok ? '✅ On OLED' : '❌ Error';
+        })
+        .catch(() => { btn.textContent = 'On OLED'; });
+      setTimeout(() => { if (btn.textContent.startsWith('✅')) btn.textContent = 'On OLED'; }, 1500);
+    }
+
+    function sdDeleteImage(it, card, del) {
+      if (!confirm('Really delete "' + it.name + '"?')) return;
+      del.textContent = '…';
+      fetch('/sd/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: it.name })
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            card.remove();
+            const g = document.getElementById('sd-gallery');
+            if (!g.querySelector('.upload-card'))
+              g.innerHTML = '<div class="upload-gallery-empty">No images generated yet.</div>';
+          } else { del.textContent = '🗑'; }
+        })
+        .catch(() => { del.textContent = '🗑'; });
+    }
+
+    // ── Pixel Canvas ──
+    const canvas = document.getElementById('pixel-canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let isWhite = true;
+
+    function setPen(white) {
+      isWhite = white;
+      document.getElementById('pen-white').className = white ? 'active-white' : '';
+      document.getElementById('pen-black').className = white ? '' : 'active-black';
+    }
+
+    function getPixelPos(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - r.left) / r.width * 128);
+      const y = Math.floor((e.clientY - r.top) / r.height * 64);
+      return [Math.max(0, Math.min(127, x)), Math.max(0, Math.min(63, y))];
+    }
+
+    function paint(x, y) {
+      ctx.fillStyle = isWhite ? '#fff' : '#000';
+      ctx.fillRect(x, y, 1, 1);
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      isDrawing = true;
+      const [x, y] = getPixelPos(e);
+      paint(x, y);
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!isDrawing) return;
+      const [x, y] = getPixelPos(e);
+      paint(x, y);
+    });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+    // Touch support
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      isDrawing = true;
+      const touch = e.touches[0];
+      const [x, y] = getPixelPos(touch);
+      paint(x, y);
+    });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const [x, y] = getPixelPos(touch);
+      paint(x, y);
+    });
+    canvas.addEventListener('touchend', () => isDrawing = false);
+
+    function sendToOLED() {
+      const imgData = ctx.getImageData(0, 0, 128, 64);
+      const pixels = [];
+      for (let y = 0; y < 64; y++) {
+        for (let x = 0; x < 128; x++) {
+          const i = (y * 128 + x) * 4;
+          pixels.push([x, y, imgData.data[i] > 128]);
+        }
+      }
+      fetch('/draw/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pixels })
+      }).then(r => r.json()).then(() => {
+        return fetch('/draw/send', { method: 'POST' });
+      }).then(r => r.json()).then(d => {
+        // Success is reflected on the OLED itself — no popup.
+      }).catch(err => {
+        console.error('send to OLED failed:', err);
+      });
+    }
+
+    function clearCanvas() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, 128, 64);
+      fetch('/draw/clear', { method: 'POST' });
+    }
+
+    function exportCanvas() {
+      const link = document.createElement('a');
+      link.download = 'oled-image.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // ── Stable Diffusion ──
+    const sdStatus = document.getElementById('sd-status');
+    const sdProgress = document.getElementById('sd-progress');
+    const sdProgressFill = document.getElementById('sd-progress-fill');
+    const sdProgressText = document.getElementById('sd-progress-text');
+    const sdResult = document.getElementById('sd-result');
+    const sdResultImg = document.getElementById('sd-result-img');
+    const sdResultLink = document.getElementById('sd-result-link');
+    const sdGenerateBtn = document.getElementById('sd-generate');
+    const sdStepsEl = document.getElementById('sd-steps');
+    let sdPollTimer = null;
+    let sdDoneShown = null;
+
+    // There is a single model (SDXL Turbo). Fetch /sd/models to learn its step
+    // range, whether it supports --res, and the recommended-steps hint.
+    let sdModel = null;
+    function sdModelConfig() { return sdModel; }
+
+    function sdUpdateStepsHint() {
+      const m = sdModelConfig();
+      if (!m) return;
+      const rec = m.recommend || '';
+      document.getElementById('sd-steps-hint').textContent = rec ? `💡 ${rec}` : '';
+    }
+    function sdLoadModels() {
+      fetch('/sd/models').then(r => r.json()).then(d => {
+        if (!d.ok || !d.models || !d.models.length) return;
+        sdModel = d.models.find(x => x.id === d.default) || d.models[0];
+        if (sdModel) sdApplyModelSteps(sdModel);
+        document.getElementById('sd-res').addEventListener('change', sdToggleResCustom);
+        sdUpdateStepsHint();
+      }).catch(() => {});
+    }
+
+    function sdApplyModelSteps(m) {
+      sdStepsEl.min = m.min;
+      sdStepsEl.max = m.max;
+      sdStepsEl.value = m.default;
+      sdUpdateResRow();
+    }
+
+    // Show the Format control (in the merged row) only for models that
+    // support --res. The whole row (Format / Steps / Seed) stays visible.
+    function sdUpdateResRow() {
+      const m = sdModelConfig();
+      const fmt = document.querySelector('#sd-row > label:has(#sd-res)')
+        || document.getElementById('sd-row').children[0];
+      const custom = document.getElementById('sd-res-custom');
+      if (m && m.supports_res) {
+        if (fmt) fmt.style.display = '';
+        sdToggleResCustom();
+      } else if (fmt) {
+        fmt.style.display = 'none';
+        custom.style.display = 'none';
+      }
+    }
+    function sdToggleResCustom() {
+      const sel = document.getElementById('sd-res').value;
+      document.getElementById('sd-res-custom').style.display = sel === 'custom' ? '' : 'none';
+    }
+    function sdGetRes() {
+      const m = sdModelConfig();
+      if (!m || !m.supports_res) return '';
+      const sel = document.getElementById('sd-res').value;
+      if (sel === 'custom') {
+        const v = (document.getElementById('sd-res-custom-val').value || '').trim();
+        return v;
+      }
+      return sel; // '' (square) or a fixed "WxH"
+    }
+
+    sdLoadModels();
+
+    function sdStart() {
+      const prompt = document.getElementById('sd-prompt').value.trim();
+      if (!prompt) { sdShowStatus('err', 'Please enter a prompt.'); return; }
+      const model = sdModel ? sdModel.id : 'sdxl_turbo';
+      const steps = parseInt(sdStepsEl.value, 10);
+      const seedRaw = document.getElementById('sd-seed').value.trim();
+      const res = sdGetRes();
+
+      sdShowStatus('', '');
+      sdResult.classList.remove('visible');
+      sdProgress.classList.add('visible');
+      sdProgressFill.style.width = '0%';
+      sdProgressText.textContent = 'Starting generation…';
+      sdGenerateBtn.disabled = true;
+      sdDoneShown = null;
+
+      fetch('/sd/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model, steps, seed: seedRaw || 'random', res: res || '' })
+      }).then(r => r.json()).then(d => {
+        if (!d.ok) {
+          sdShowStatus('err', d.error || 'Failed to start');
+          sdGenerateBtn.disabled = false;
+        }
+      }).catch(err => {
+        sdShowStatus('err', String(err));
+        sdGenerateBtn.disabled = false;
+      });
+
+      sdPoll(false);
+    }
+
+    function sdShowStatus(cls, msg) {
+      sdStatus.className = 'status-bar' + (cls ? ' ' + cls : '');
+      sdStatus.textContent = msg || '';
+    }
+
+    function sdPoll(immediate) {
+      if (sdPollTimer) { clearInterval(sdPollTimer); sdPollTimer = null; }
+      const tick = () => {
+        fetch('/sd/status').then(r => r.json()).then(s => {
+          if (s.running) {
+            const pct = s.total_steps ? Math.round(100 * s.current_step / s.total_steps) : 0;
+            sdProgressFill.style.width = pct + '%';
+            sdProgressText.textContent = `Step ${s.current_step}/${s.total_steps} · ${pct}%`;
+            const mLabel = (sdModel && sdModel.label) || s.model || 'SDXL Turbo';
+            sdShowStatus('', `Generating (${mLabel}): "${s.prompt}"`);
+          } else if (s.phase === 'done') {
+            sdProgressFill.style.width = '100%';
+            sdProgressText.textContent = `Done in ${Math.round(s.elapsed || 0)} s`;
+            sdShowStatus('ok', '✅ Done!');
+            sdGenerateBtn.disabled = false;
+            loadSdGallery();
+            if (s.output && s.output !== sdDoneShown) {
+              sdDoneShown = s.output;
+              const url = '/sd/latest?t=' + Date.now();
+              sdResultImg.src = url;
+              sdResultLink.href = '/sd/latest?t=' + Date.now();
+              sdResult.classList.add('visible');
+            }
+            sdPollTimer && clearInterval(sdPollTimer);
+            sdPollTimer = null;
+          } else if (s.phase === 'error') {
+            sdShowStatus('err', '❌ ' + (s.error || 'Error'));
+            sdGenerateBtn.disabled = false;
+            sdPollTimer && clearInterval(sdPollTimer);
+            sdPollTimer = null;
+          } else if (s.phase === 'idle') {
+            // only reset the button if a fresh idle follows our run
+            sdGenerateBtn.disabled = false;
+          }
+        }).catch(() => {});
+      };
+      if (immediate) tick();
+      sdPollTimer = setInterval(tick, 2000);
+    }
+
+    // poll once on load to restore state after page refresh
+    sdPoll(true);
+
+    // Load upload gallery on page open
+    loadUploadGallery(false);
+
+    // Clear canvas on load
+    clearCanvas();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,4 @@
+# Consistent line endings: LF for text
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
